@@ -62,6 +62,11 @@ static bool g_dashboardActive = false;
 
 static void MarkExiting();
 
+static lighthouse::Power ExitPowerMode()
+{
+    return CalCtx.dynamicPowerMode == 1 ? lighthouse::Power::Sleep : lighthouse::Power::Standby;
+}
+
 static void BeginClose()
 {
     if (g_shutdownScreen)
@@ -70,13 +75,13 @@ static void BeginClose()
     MarkExiting();
 #endif
     size_t stationCount = lighthouse::Stations().size();
-    if (!g_desktopForced && !g_handoverToVrInstance && CalCtx.dynamicBasestationPower && stationCount > 0)
+    if (!g_desktopForced && !g_handoverToVrInstance && CalCtx.basestationManagement && CalCtx.dynamicBasestationPower && stationCount > 0)
     {
-        lighthouse::Note("close requested (X), showing standby screen");
+        lighthouse::Note("close requested (X), showing power-down screen");
         g_shutdownScreen = true;
         g_shutdownStart = SDL_GetTicks();
         g_shutdownBudgetMs = (uint64_t)stationCount * 8000 + 5000;
-        lighthouse::BeginStandbyAll();
+        lighthouse::BeginPowerDownAll(ExitPowerMode());
     }
     else
     {
@@ -490,6 +495,7 @@ int main(int argc, char** argv)
         lighthouse::Note(ex.what());
     }
 
+    lighthouse::SetManaged(CalCtx.basestationManagement);
     if (!g_desktopForced && CalCtx.dynamicBasestationPower)
         lighthouse::SetAutoWake(true);
     lighthouse::EnsureScanning();
@@ -725,8 +731,8 @@ int main(int argc, char** argv)
 #ifdef _WIN32
     MarkExiting();
 #endif
-    if (!g_exitStandbyDone && !g_desktopForced && !g_handoverToVrInstance && CalCtx.dynamicBasestationPower)
-        lighthouse::StandbyAllAndWait(8000);
+    if (!g_exitStandbyDone && !g_desktopForced && !g_handoverToVrInstance && CalCtx.basestationManagement && CalCtx.dynamicBasestationPower)
+        lighthouse::PowerDownAllAndWait(ExitPowerMode(), 8000);
     lighthouse::Note("teardown");
     lighthouse::Shutdown();
     sound::Shutdown();
